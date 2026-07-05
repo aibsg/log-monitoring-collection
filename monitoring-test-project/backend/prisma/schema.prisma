@@ -1,0 +1,40 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Invoice {
+  id            Int      @id @default(autoincrement())
+  invoiceNumber String   @unique @map("invoice_number") @db.VarChar(50)
+  clientName    String   @map("client_name") @db.VarChar(255)
+  clientEmail   String   @map("client_email") @db.VarChar(255)
+  amount        Decimal  @db.Decimal(10, 2)
+  currency      String   @default("USD") @db.VarChar(3)
+  status        InvoiceStatus @default(DRAFT)
+  dueDate       DateTime @map("due_date") @db.Date
+  description   String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([clientEmail])
+  @@index([status])
+  @@index([dueDate])
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  DRAFT      @map("draft")
+  SENT       @map("sent")
+  PAID       @map("paid")
+  OVERDUE    @map("overdue")
+  CANCELLED  @map("cancelled")
+
+  @@map("invoice_status")
+}

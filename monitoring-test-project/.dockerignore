@@ -1,0 +1,21 @@
+# Node dependencies
+node_modules
+**/node_modules
+
+logs
+*.log
+
+.env
+.env.*
+
+.git
+.gitignore
+.vscode
+.idea
+
+.DS_Store
+Thumbs.db
+.cache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log* 

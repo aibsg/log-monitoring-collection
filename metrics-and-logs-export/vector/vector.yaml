@@ -1,0 +1,150 @@
+sources:
+  pm2_logs:
+    type: file
+    include:
+      - /var/log/pm2/*.log
+    read_from: end
+  nginx_logs:
+    type: file
+    include:
+      - /var/log/nginx/*.log
+    read_from: end
+  mysql_error_logs:
+    type: file
+    include:
+      - /var/log/mysql/error.log
+    read_from: end
+  mysql_general_logs:
+    type: file
+    include:
+      - /var/log/mysql/general.log
+    read_from: end
+  mysql_slow_logs:
+    type: file
+    include:
+      - /var/log/mysql/slow.log
+    read_from: end
+transforms:
+  normalize_pm2:
+    type: remap
+    inputs: [pm2_logs]
+    source: |
+      parsed, err = parse_json(.message)
+      if err == null {
+        . = parsed
+      } else {
+        . = {
+          "timestamp": now(),
+          "service": "pm2",
+          "level": "info",
+          "message": string!(.message)
+        }
+      }
+      .service = "pm2"
+      del(.file)
+      del(.source_type)
+      del(.host)
+    
+  normalize_nginx:
+    type: remap
+    inputs: [nginx_logs]
+    source: |
+      . = {
+        "timestamp": now(),
+        "service": "nginx",
+        "message": string!(.message)
+      }
+      del(.file)
+      del(.source_type)
+      del(.host)
+    
+  normalize_mysql_error:
+    type: remap
+    inputs: [mysql_error_logs]
+    source: |
+      . = {
+        "timestamp": now(),
+        "service": "mysql",
+        "log_type": "error",
+        "message": string!(.message)
+      }
+      del(.file)
+      del(.source_type)
+      del(.host)
+      
+  normalize_mysql_general:
+    type: remap
+    inputs: [mysql_general_logs]
+    source: |
+      . = {
+        "timestamp": now(),
+        "service": "mysql",
+        "log_type": "general",
+        "message": string!(.message)
+      }
+      del(.file)
+      del(.source_type)
+      del(.host)
+      
+  normalize_mysql_slow:
+    type: remap
+    inputs: [mysql_slow_logs]
+    source: |
+      . = {
+        "timestamp": now(),
+        "service": "mysql",
+        "log_type": "slow",
+        "message": string!(.message)
+      }
+      del(.file)
+      del(.source_type)
+      del(.host)
+      
+sinks:
+  pm2_out:
+    type: file
+    inputs: [normalize_pm2]
+    path: "${LOGS_OUT_CONTAINER}/backend/%Y/%m/%d/%H.log"
+    encoding:
+      codec: json
+    compression: none
+    
+  nginx_out:
+    type: file
+    inputs: [normalize_nginx]
+    path: "${LOGS_OUT_CONTAINER}/nginx/%Y/%m/%d/%H.log"
+    encoding:
+      codec: json
+    compression: none
+  
+  mysql_error_out:
+    type: file
+    inputs: [normalize_mysql_error]
+    path: "${LOGS_OUT_CONTAINER}/mysql/error/%Y/%m/%d/%H.log"
+    encoding:
+      codec: json
+      
+  mysql_general_out:
+    type: file
+    inputs: [normalize_mysql_general]
+    path: "${LOGS_OUT_CONTAINER}/mysql/general/%Y/%m/%d/%H.log"
+    encoding:
+      codec: json
+      
+  mysql_slow_out:
+    type: file
+    inputs: [normalize_mysql_slow]
+    path: "${LOGS_OUT_CONTAINER}/mysql/slow/%Y/%m/%d/%H.log"
+    encoding:
+      codec: json
+  
+  debug_all:
+    type: console
+    inputs:
+      - normalize_pm2
+      - normalize_nginx
+      - normalize_mysql_error
+      - normalize_mysql_general
+      - normalize_mysql_slow
+    encoding:
+      codec: json

@@ -1,0 +1,78 @@
+services:
+  db:
+    build: ./mysql
+    image: ${CI_REGISTRY_IMAGE}/mysql:${CI_COMMIT_REF_SLUG}
+    container_name: monitoring_db
+    cap_drop: 
+      - ALL
+    group_add:
+      - adm     
+    mem_limit: 700m
+    cpus: "0.5"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    restart: unless-stopped
+    volumes:
+      - db_data:/var/lib/mysql
+      - /var/log/mysql:/var/log/mysql 
+    ports:
+      - "127.0.0.1:${DB_PORT}:3306"
+    networks:
+      - app_net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10 
+
+  backend:
+    build: ./backend
+    image: ${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_REF_SLUG}
+    container_name: monitoring_backend
+    group_add:
+      - adm
+    cap_drop:
+      - ALL
+    security_opt: 
+      - "no-new-privileges=true"
+    mem_limit: 150m
+    cpus: "0.3"
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${DB_HOST}:${DB_PORT}/${MYSQL_DATABASE}
+      PORT: ${PORT}
+      NODE_ENV: ${NODE_ENV}
+      LOG_LEVEL: ${LOG_LEVEL}
+      LOG_FILE: ${LOG_FILE}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${PORT}:${PORT}"
+    networks:
+      - app_net
+    restart: unless-stopped
+    volumes:
+      - /var/log/pm2:/app/logs #владелец должен быть nodeapp
+
+  frontend_build:
+    build:
+      context: ./frontend
+      args: 
+        VITE_API_URL: ${VITE_API_URL} #from gitlab vars
+    image: ${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_REF_SLUG}
+    container_name: monitoring_frontend
+    mem_limit: 100m
+    cpus: "0.2"
+    restart: unless-stopped
+    volumes:
+      - /var/www/monitoring/frontend_build:/build_out
+    command: sh -c "cp -r /app/dist/* /build_out/"
+
+volumes:
+  db_data:
+
+networks:
+  app_net:

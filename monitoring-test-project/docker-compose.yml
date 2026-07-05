@@ -1,0 +1,61 @@
+services:
+  db:
+    build: ./mysql
+    container_name: monitoring_db
+    cap_drop: 
+      - ALL
+    mem_limit: 700m
+    cpus: "0.5"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+      - /var/log/mysql:/var/log/mysql #владелец должен быть mysql
+    ports:
+      - "${DB_PORT}:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app_net
+
+  backend:
+    build: ./backend
+    container_name: monitoring_backend
+    mem_limit: 150m
+    cpus: "0.3"
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${DB_HOST}:${DB_PORT}/${MYSQL_DATABASE}
+      PORT: ${PORT}
+      NODE_ENV: ${NODE_ENV}
+      LOG_LEVEL: ${LOG_LEVEL}
+      LOG_FILE: ${LOG_FILE}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PORT}:${PORT}"
+    networks:
+      - app_net
+    volumes:
+      - /var/log/pm2:/app/logs   
+
+  frontend_build:
+    build: ./frontend
+    container_name: monitoring_frontend
+    mem_limit: 100m
+    cpus: "0.2"
+    volumes:
+      - ./../frontend_build:/build_out
+    command: sh -c "cp -r /app/dist/* /build_out/"
+
+volumes:
+  db_data:
+
+networks:
+  app_net:

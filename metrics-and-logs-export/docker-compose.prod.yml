@@ -1,0 +1,57 @@
+services:
+  node-exporter:
+    image: prom/node-exporter:v1.10.2
+    container_name: node-exporter
+    environment:
+      - TZ=Asia/Yekaterinburg
+    cap_drop:
+      - ALL
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - monitoring_net
+    ports: 
+      - 127.0.0.1:9100:9100    
+
+  
+  vector-agent:
+    image: timberio/vector:0.51.1-alpine
+    container_name: vector-agent
+    environment:
+      - TZ=Asia/Yekaterinburg
+    user: 2000:2000
+    group_add:
+      - adm
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - ${VECTOR_CONFIG_DIR_HOST}:/etc/vector:ro
+      - ${PM2_LOGS_DIR}:/var/log/pm2:ro
+      - ${NGINX_LOGS_DIR}:/var/log/nginx:ro
+      - ${MYSQL_LOGS_DIR}:/var/log/mysql:ro
+      - ${LOGS_OUT_HOST}:${LOGS_OUT_CONTAINER}
+      - ./vector_data:/var/lib/vector
+    networks:
+      - logs_net
+
+networks:
+  monitoring_net:
+    external: true
+  logs_net:
+

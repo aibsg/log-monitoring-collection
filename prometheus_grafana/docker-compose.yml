@@ -1,0 +1,54 @@
+services:
+  prometheus:
+    image: prom/prometheus:v3.8.0
+    container_name: prometheus
+    cap_drop:
+      - ALL
+    security_opt: 
+      - "no-new-privileges=true"
+    env_file:
+      - .env
+    volumes:
+      - ./prometheus:/etc/prometheus/
+      - prometheus_data:/prometheus/
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    ports:
+      - 127.0.0.1:${PROMETHEUS_PORT}:9090
+    networks:
+      - monitoring_net
+    restart: unless-stopped
+    
+  grafana:
+    image: grafana/grafana:12.4.0
+    container_name: grafana
+    cap_drop:
+      - ALL
+    security_opt: 
+      - "no-new-privileges=true"
+    env_file:
+      - .env
+    environment:
+      - GF_SECURITY_ADMIN_USER=${ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+    ports:
+      - ${GRAFANA_PORT}:3000
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - monitoring_net 
+    restart: unless-stopped
+  
+volumes:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  monitoring_net:
+    external: true
+      
+  
